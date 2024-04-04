@@ -91,12 +91,12 @@
         try {
           result = handler.apply(elem, [event]);
         } catch (err) {
-          var errorName = 'Catched error - ' + 'click.' + ns;
-          console.groupCollapsed(errorName);
+          var errorName2 = 'Catched error - ' + 'click.' + ns;
+          console.groupCollapsed(errorName2);
           console.log('%c[' + 'Event name' + ']', 'color: green', 'click.' + ns);
           console.log('%c[' + 'Element' + ']', 'color: green', element);
           console.error(err);
-          console.groupEnd(errorName);
+          console.groupEnd(errorName2);
         }
 
         if (result === false) {

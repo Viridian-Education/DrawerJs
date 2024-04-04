@@ -1263,11 +1263,12 @@
    * @returns {boolean}
    */
   Drawer.prototype.adjustEditContainer = function (withAnimation, doNotUseDelay) {
-    var self = this,
-        drawerHaveAnimatedClass = this.$canvasEditContainer.hasClass('animated');
     if (!this.$canvasEditContainer) {
       return false;
     }
+    
+    var self = this,
+        drawerHaveAnimatedClass = this.$canvasEditContainer.hasClass('animated');
 
     var imageOffset = this.$imageElement.offset();
     if (!withAnimation) {
