@@ -28762,12 +28762,19 @@ DrawerJs.texts = {
       this.fCanvas.deactivateAll();
     }
 
+    // LMS: a stop before loadFromJSON finished must not render or sync the still-empty canvas over the stored drawing.
+    var loadPending = this.mode == this.MODE_PREPARING;
+
     // image should show what has been painted on canvas
-    this.$imageElement.attr('src', this.getImageData());
+    if (!loadPending) {
+      this.$imageElement.attr('src', this.getImageData());
+    }
     this.$imageElement.removeClass('edit-mode');
     this.$imageElement.removeClass('editable-canvas-not-edited');
 
-    this.syncCanvasData();
+    if (!loadPending) {
+      this.syncCanvasData();
+    }
 
     this.$imageElement.show();
 
@@ -28779,6 +28786,11 @@ DrawerJs.texts = {
     $(window).off('resize.drawer' + this.id);
 
     this.trigger(this.EVENT_EDIT_STOP);
+
+    // LMS: drop the unloaded canvas so getCanvasData on the next start reads the stored data.
+    if (loadPending) {
+      this.fCanvas = null;
+    }
     this.mode = this.MODE_INACTIVE;
   };
 
@@ -28840,6 +28852,11 @@ DrawerJs.texts = {
         }
       }
       this.fCanvas.renderAll();
+      // LMS: recoloring a selected object fires no object:modified, so save it here.
+      if (this.mode == this.MODE_ACTIVE) {
+        this.syncCanvasData();
+        this.syncImageData();
+      }
     }
     this.fCanvas.freeDrawingBrush.color = this.activeColor;
     this.fCanvas.freeDrawingBrush.fill = this.activeColor;
@@ -28862,6 +28879,11 @@ DrawerJs.texts = {
     if (!withoutProcessing) {
       this.fCanvas.renderAll();
       this.trigger(this.EVENT_CANVAS_MODIFIED);
+      // LMS: an opacity change on a selected object fires no object:modified, so save it here.
+      if (activeObject && this.mode == this.MODE_ACTIVE) {
+        this.syncCanvasData();
+        this.syncImageData();
+      }
     }
   };
 
@@ -29133,6 +29155,11 @@ DrawerJs.texts = {
    */
   Drawer.prototype.onCanvasModified = function (ignoreOptions) {
     var _this = this;
+
+    // LMS: a canvas still loading must never overwrite stored data or the preview image.
+    if (this.mode == this.MODE_PREPARING) {
+      return false;
+    }
 
     if (ignoreOptions === undefined &&
       this.options.contentConfig.saveAfterInactiveSec) {
@@ -29761,7 +29788,13 @@ DrawerJs.texts = {
   Drawer.prototype.loadCanvas = function (serializedCanvas) {
     var _this = this;
     if (serializedCanvas) {
+      var loadingCanvas = this.fCanvas;
       this.fCanvas.loadFromJSON(serializedCanvas, function() {
+        // LMS: ignore a load the drawer was stopped or restarted after.
+        if (_this.fCanvas !== loadingCanvas) {
+          return;
+        }
+
         // now when we load everything we should adjust object's properties
         // for selection controls based on our config
         var allObjects = _this.fCanvas.getObjects();
@@ -29844,6 +29877,16 @@ DrawerJs.texts = {
     });
     this.fCanvas.on('text:editing:exited', function (fEvent) {
       _this.trigger(_this.EVENT_TEXT_EDITING_EXITED, fEvent);
+    });
+    // LMS: save typed text without ending text editing; onCanvasModified would end it.
+    var textCanvas = this.fCanvas;
+    this.fCanvas.on('text:changed', function () {
+      // LMS: a text box left editing on a replaced canvas must not sync the new, possibly still loading, canvas.
+      if (_this.fCanvas !== textCanvas) {
+        return;
+      }
+      _this.syncCanvasData();
+      _this.syncImageData();
     });
 
     // restore brush and color settings
@@ -29957,7 +30000,8 @@ DrawerJs.texts = {
   Drawer.prototype.syncCanvasData = function (deleteItself) {
     var _this = this;
 
-    if (!_this.fCanvas) {
+    // LMS: a canvas still loading must never overwrite stored data.
+    if (!_this.fCanvas || _this.mode == _this.MODE_PREPARING) {
       return;
     }
 
@@ -30001,6 +30045,11 @@ DrawerJs.texts = {
    */
   Drawer.prototype.syncImageData = function (deleteItself) {
     var _this = this;
+
+    // LMS: a canvas still loading must never overwrite stored data.
+    if (_this.mode == _this.MODE_PREPARING) {
+      return;
+    }
 
     var imageData = _this.getImageData();
 
@@ -33617,7 +33666,8 @@ DrawerToolbarManager.prototype._removeHelperElements = function() {
   if (this.drawerInstance.$toolbarsWrapper && this.drawerInstance.$toolbarsWrapper.length) {
     this.drawerInstance.$toolbarsWrapper.remove();
   }
-  var $toolbarsWrapper = this.drawerInstance.$canvasEditContainer.find('.toolbars-wrapper');
+  // LMS: the edit container is null once editing stops.
+  var $toolbarsWrapper = this.drawerInstance.$canvasEditContainer && this.drawerInstance.$canvasEditContainer.find('.toolbars-wrapper');
   if ($toolbarsWrapper && $toolbarsWrapper.length) {
     $toolbarsWrapper.remove();
   }
@@ -36493,6 +36543,10 @@ ToolOptionsToolbar.prototype.customScrollMode = true;
     BackgroundImageTool.prototype.makeImageBackground = function(image, options) {
         var _this = this;
         var fCanvas = this.drawerInstance.fCanvas;
+        // LMS: a fetch can land after a stop dropped the canvas; the next start fetches the background again.
+        if (!fCanvas) {
+            return;
+        }
         var fabricImage = new fabric.Image(image);
 
         // if no options - use tool config options
@@ -36568,7 +36622,8 @@ ToolOptionsToolbar.prototype.customScrollMode = true;
      */
     BackgroundImageTool.prototype._repositionImage = function() {
         var fCanvas = this.drawerInstance.fCanvas;
-        if (!fCanvas.backgroundImage)
+        // LMS: the throttled call can run after a stop dropped the canvas.
+        if (!fCanvas || !fCanvas.backgroundImage)
             return;
 
         var bgImage = fCanvas.backgroundImage;
@@ -37298,6 +37353,11 @@ ToolOptionsToolbar.prototype.customScrollMode = true;
         }
       }
       currText.canvas.renderAll();
+      // LMS: text styling fires no object:modified; save directly, since onCanvasModified would end text editing.
+      if (this.drawer.mode == this.drawer.MODE_ACTIVE) {
+        this.drawer.syncCanvasData();
+        this.drawer.syncImageData();
+      }
     }
   };
 
@@ -37948,6 +38008,11 @@ ToolOptionsToolbar.prototype.customScrollMode = true;
     }
 
     fCanvas.renderAll();
+    // LMS: the eraser path's object:added sync ran before the erased shapes changed above.
+    if (this.affectedShapes.length && this.drawerInstance.mode == this.drawerInstance.MODE_ACTIVE) {
+      this.drawerInstance.syncCanvasData();
+      this.drawerInstance.syncImageData();
+    }
   };
 
 
@@ -41660,7 +41725,8 @@ CloseButton.prototype._onCloseButtonClick = function() {
     if (this.drawerInstance.$popupWrapper && this.drawerInstance.$popupWrapper.length) {
       this.drawerInstance.$popupWrapper.remove();
     }
-    var $popupElement = this.drawerInstance.$canvasEditContainer.find('.' + this.popupClass);
+    // LMS: the edit container is null once editing stops.
+    var $popupElement = this.drawerInstance.$canvasEditContainer && this.drawerInstance.$canvasEditContainer.find('.' + this.popupClass);
     if ($popupElement && $popupElement.length) {
       $popupElement.remove();
     }
