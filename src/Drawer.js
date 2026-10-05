@@ -982,12 +982,19 @@
       this.fCanvas.deactivateAll();
     }
 
+    // LMS: a stop before loadFromJSON finished must not render or sync the still-empty canvas over the stored drawing.
+    var loadPending = this.mode == this.MODE_PREPARING;
+
     // image should show what has been painted on canvas
-    this.$imageElement.attr('src', this.getImageData());
+    if (!loadPending) {
+      this.$imageElement.attr('src', this.getImageData());
+    }
     this.$imageElement.removeClass('edit-mode');
     this.$imageElement.removeClass('editable-canvas-not-edited');
 
-    this.syncCanvasData();
+    if (!loadPending) {
+      this.syncCanvasData();
+    }
 
     this.$imageElement.show();
 
@@ -999,6 +1006,11 @@
     $(window).off('resize.drawer' + this.id);
 
     this.trigger(this.EVENT_EDIT_STOP);
+
+    // LMS: drop the unloaded canvas so getCanvasData on the next start reads the stored data.
+    if (loadPending) {
+      this.fCanvas = null;
+    }
     this.mode = this.MODE_INACTIVE;
   };
 
@@ -1060,6 +1072,11 @@
         }
       }
       this.fCanvas.renderAll();
+      // LMS: recoloring a selected object fires no object:modified, so save it here.
+      if (this.mode == this.MODE_ACTIVE) {
+        this.syncCanvasData();
+        this.syncImageData();
+      }
     }
     this.fCanvas.freeDrawingBrush.color = this.activeColor;
     this.fCanvas.freeDrawingBrush.fill = this.activeColor;
@@ -1082,6 +1099,11 @@
     if (!withoutProcessing) {
       this.fCanvas.renderAll();
       this.trigger(this.EVENT_CANVAS_MODIFIED);
+      // LMS: an opacity change on a selected object fires no object:modified, so save it here.
+      if (activeObject && this.mode == this.MODE_ACTIVE) {
+        this.syncCanvasData();
+        this.syncImageData();
+      }
     }
   };
 
@@ -1353,6 +1375,11 @@
    */
   Drawer.prototype.onCanvasModified = function (ignoreOptions) {
     var _this = this;
+
+    // LMS: a canvas still loading must never overwrite stored data or the preview image.
+    if (this.mode == this.MODE_PREPARING) {
+      return false;
+    }
 
     if (ignoreOptions === undefined &&
       this.options.contentConfig.saveAfterInactiveSec) {

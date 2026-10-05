@@ -206,6 +206,11 @@
         }
       }
       currText.canvas.renderAll();
+      // LMS: text styling fires no object:modified; save directly, since onCanvasModified would end text editing.
+      if (this.drawer.mode == this.drawer.MODE_ACTIVE) {
+        this.drawer.syncCanvasData();
+        this.drawer.syncImageData();
+      }
     }
   };
 

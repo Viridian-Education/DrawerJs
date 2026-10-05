@@ -159,7 +159,8 @@
     if (this.drawerInstance.$popupWrapper && this.drawerInstance.$popupWrapper.length) {
       this.drawerInstance.$popupWrapper.remove();
     }
-    var $popupElement = this.drawerInstance.$canvasEditContainer.find('.' + this.popupClass);
+    // LMS: the edit container is null once editing stops.
+    var $popupElement = this.drawerInstance.$canvasEditContainer && this.drawerInstance.$canvasEditContainer.find('.' + this.popupClass);
     if ($popupElement && $popupElement.length) {
       $popupElement.remove();
     }

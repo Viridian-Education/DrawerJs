@@ -261,6 +261,10 @@
     BackgroundImageTool.prototype.makeImageBackground = function(image, options) {
         var _this = this;
         var fCanvas = this.drawerInstance.fCanvas;
+        // LMS: a fetch can land after a stop dropped the canvas; the next start fetches the background again.
+        if (!fCanvas) {
+            return;
+        }
         var fabricImage = new fabric.Image(image);
 
         // if no options - use tool config options
@@ -336,7 +340,8 @@
      */
     BackgroundImageTool.prototype._repositionImage = function() {
         var fCanvas = this.drawerInstance.fCanvas;
-        if (!fCanvas.backgroundImage)
+        // LMS: the throttled call can run after a stop dropped the canvas.
+        if (!fCanvas || !fCanvas.backgroundImage)
             return;
 
         var bgImage = fCanvas.backgroundImage;

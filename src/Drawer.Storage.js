@@ -79,7 +79,13 @@
   Drawer.prototype.loadCanvas = function (serializedCanvas) {
     var _this = this;
     if (serializedCanvas) {
+      var loadingCanvas = this.fCanvas;
       this.fCanvas.loadFromJSON(serializedCanvas, function() {
+        // LMS: ignore a load the drawer was stopped or restarted after.
+        if (_this.fCanvas !== loadingCanvas) {
+          return;
+        }
+
         // now when we load everything we should adjust object's properties
         // for selection controls based on our config
         var allObjects = _this.fCanvas.getObjects();
@@ -162,6 +168,16 @@
     });
     this.fCanvas.on('text:editing:exited', function (fEvent) {
       _this.trigger(_this.EVENT_TEXT_EDITING_EXITED, fEvent);
+    });
+    // LMS: save typed text without ending text editing; onCanvasModified would end it.
+    var textCanvas = this.fCanvas;
+    this.fCanvas.on('text:changed', function () {
+      // LMS: a text box left editing on a replaced canvas must not sync the new, possibly still loading, canvas.
+      if (_this.fCanvas !== textCanvas) {
+        return;
+      }
+      _this.syncCanvasData();
+      _this.syncImageData();
     });
 
     // restore brush and color settings
@@ -275,7 +291,8 @@
   Drawer.prototype.syncCanvasData = function (deleteItself) {
     var _this = this;
 
-    if (!_this.fCanvas) {
+    // LMS: a canvas still loading must never overwrite stored data.
+    if (!_this.fCanvas || _this.mode == _this.MODE_PREPARING) {
       return;
     }
 
@@ -319,6 +336,11 @@
    */
   Drawer.prototype.syncImageData = function (deleteItself) {
     var _this = this;
+
+    // LMS: a canvas still loading must never overwrite stored data.
+    if (_this.mode == _this.MODE_PREPARING) {
+      return;
+    }
 
     var imageData = _this.getImageData();
 
