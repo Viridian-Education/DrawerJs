@@ -265,6 +265,11 @@
     }
 
     fCanvas.renderAll();
+    // LMS: the eraser path's object:added sync ran before the erased shapes changed above.
+    if (this.affectedShapes.length && this.drawerInstance.mode == this.drawerInstance.MODE_ACTIVE) {
+      this.drawerInstance.syncCanvasData();
+      this.drawerInstance.syncImageData();
+    }
   };
 
 

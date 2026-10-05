@@ -213,7 +213,8 @@ DrawerToolbarManager.prototype._removeHelperElements = function() {
   if (this.drawerInstance.$toolbarsWrapper && this.drawerInstance.$toolbarsWrapper.length) {
     this.drawerInstance.$toolbarsWrapper.remove();
   }
-  var $toolbarsWrapper = this.drawerInstance.$canvasEditContainer.find('.toolbars-wrapper');
+  // LMS: the edit container is null once editing stops.
+  var $toolbarsWrapper = this.drawerInstance.$canvasEditContainer && this.drawerInstance.$canvasEditContainer.find('.toolbars-wrapper');
   if ($toolbarsWrapper && $toolbarsWrapper.length) {
     $toolbarsWrapper.remove();
   }
